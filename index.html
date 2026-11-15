@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GhostWink - Control your phone with a blink</title>
+<style>
+  :root{--bg:#05070D;--panel:#0B1220;--line:#12304A;--cyan:#00E5FF;--green:#39FF88;--red:#FF2E63;--amber:#FFC400;--dim:#6F8AA3;--text:#C9D6E2}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.6;
+    background-image:linear-gradient(#0a1624 1px,transparent 1px),linear-gradient(90deg,#0a1624 1px,transparent 1px);background-size:36px 36px}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 20px 70px}
+  .hero{text-align:center;padding:36px 0 10px}
+  .ghost{font-size:84px;filter:drop-shadow(0 0 14px var(--cyan));display:inline-block;animation:float 3s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(-6px)}50%{transform:translateY(8px)}}
+  h1{margin:6px 0;font-size:40px;letter-spacing:.25em;color:var(--cyan);text-shadow:0 0 18px rgba(0,229,255,.6)}
+  .tag{color:var(--dim);margin:0 0 26px}
+  .btn{display:inline-block;color:var(--green);border:2px solid var(--green);padding:15px 32px;border-radius:8px;
+    text-decoration:none;font-weight:700;letter-spacing:.1em;background:#08111C;box-shadow:0 0 18px rgba(57,255,136,.35);transition:.15s}
+  .btn:hover,.btn:active{background:var(--green);color:#04120a;box-shadow:0 0 30px rgba(57,255,136,.7)}
+  .btn.alt{color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 14px rgba(0,229,255,.3);margin-left:8px}
+  .btn.alt:hover,.btn.alt:active{background:var(--cyan);color:#001418}
+  .note{font-size:12px;color:var(--dim);margin-top:16px}
+  h2{color:var(--cyan);letter-spacing:.15em;font-size:18px;margin:42px 0 14px;text-transform:uppercase}
+  h2::before{content:"// ";color:var(--dim)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card b{color:var(--green);display:block;margin-bottom:4px}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:14px}
+  td,th{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--dim);font-weight:400;font-size:12px;letter-spacing:.1em}
+  td:first-child{color:var(--green);white-space:nowrap}
+  ol{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 16px 16px 38px}
+  details{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:10px 0;padding:12px 16px}
+  details[open]{border-color:var(--cyan)}
+  summary{cursor:pointer;color:var(--amber);font-weight:700}
+  details p,details ol{margin:10px 0 0}
+  details ol{border:0;padding:0 0 0 20px;background:none}
+  footer{text-align:center;color:var(--dim);font-size:12px;margin-top:46px}
+  .warn{border-color:var(--red);color:#ffb3c4}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="ghost">👻</div>
+    <h1>GHOSTWINK</h1>
+    <p class="tag">Hands-free phone control. Blink to execute.</p>
+    <a class="btn" href="https://github.com/dwipayanmondal233-cloud/GhostWinkApp/releases/latest/download/GhostWink.apk">&#9660; DOWNLOAD APK</a>
+    <a class="btn alt" href="https://dwipayanmondal233-cloud.github.io/GhostWink/">TRY IN BROWSER</a>
+    <p class="note">Free &middot; Android 8.0+ &middot; No ads &middot; No internet permission &middot; Front camera only</p>
+  </div>
+
+  <h2>What it does</h2>
+  <div class="grid">
+    <div class="card"><b>Blink typing</b>Short blink = dot, long blink = dash. Letters are typed into any text box.</div>
+    <div class="card"><b>Control mode</b>Scroll, go back, go home, open notifications, all with blink codes.</div>
+    <div class="card"><b>Voice feedback</b>The app talks to you: mode changes, actions, calibration. You never speak.</div>
+    <div class="card"><b>Private</b>Face tracking runs on your device. Nothing is recorded or uploaded.</div>
+  </div>
+
+  <h2>Controls</h2>
+  <table>
+    <tr><th>ACTION</th><th>WHAT IT DOES</th></tr>
+    <tr><td>Close eyes ~3 sec</td><td>Switch between TYPE and CONTROL mode</td></tr>
+    <tr><td>Raise eyebrows</td><td>Delete last character</td></tr>
+    <tr><td>TYPE: blink codes</td><td>Morse letters, e.g. S = · · ·, O = − − −</td></tr>
+    <tr><td>CONTROL: ·</td><td>Scroll down</td></tr>
+    <tr><td>CONTROL: −</td><td>Scroll up</td></tr>
+    <tr><td>CONTROL: · ·</td><td>Back</td></tr>
+    <tr><td>CONTROL: − −</td><td>Home</td></tr>
+    <tr><td>CONTROL: · · ·</td><td>Notifications</td></tr>
+    <tr><td>CONTROL: · −</td><td>Recent apps</td></tr>
+    <tr><td>CONTROL: − ·</td><td>Tap screen center</td></tr>
+  </table>
+
+  <h2>Install</h2>
+  <ol>
+    <li>Tap <b>DOWNLOAD APK</b> and open the file. Allow <b>Install unknown apps</b> if asked.</li>
+    <li>If Play Protect blocks it, see the fix below.</li>
+    <li>Open GhostWink, tap <b>START</b>, and allow camera and notifications.</li>
+    <li>Tap <b>ALLOW STATUS DOT</b> and switch it on (optional, but helpful).</li>
+    <li>Tap <b>ENABLE ACTIONS</b>, open GhostWink, and turn it <b>On</b>.</li>
+    <li>Tap <b>CALIBRATE</b> and follow the voice. Then practice typing <b>SOS</b>.</li>
+  </ol>
+
+  <h2>Problems and fixes</h2>
+
+  <details><summary>App blocked by Play Protect</summary>
+    <p>Accessibility apps are flagged as sensitive. GhostWink uses it only to type and perform actions.</p>
+    <ol>
+      <li>Open <b>Play Store</b>, profile picture, <b>Play Protect</b>.</li>
+      <li>Tap the gear and turn off <b>Scan apps with Play Protect</b>.</li>
+      <li>Install the app, then turn scanning back on.</li>
+    </ol>
+  </details>
+
+  <details><summary>Accessibility switch is greyed out (Restricted setting)</summary>
+    <ol>
+      <li>Phone <b>Settings</b>, <b>Apps</b>, <b>GhostWink</b>.</li>
+      <li>Tap <b>⋮</b> at the top right, then <b>Allow restricted settings</b>.</li>
+      <li>Go back to Accessibility and turn GhostWink on.</li>
+    </ol>
+    <p>No ⋮ menu? Open Accessibility and tap GhostWink once, then return to App info.</p>
+  </details>
+
+  <details><summary>Camera permission popup does not appear</summary>
+    <p>Android blocks permission popups while another app draws over the screen. Stop other floating apps (bubbles, recorders, blue-light filters), then try again. Or grant it manually: Settings, Apps, GhostWink, Permissions, Camera, <b>Allow while using the app</b>.</p>
+  </details>
+
+  <details><summary>Blinks are not detected</summary>
+    <p>Tap <b>CALIBRATE</b> and follow the voice. Face the camera in good light, about an arm's length away. Take off glasses if they reflect light. You can also lower the <b>Blink threshold</b> slider.</p>
+  </details>
+
+  <details><summary>Dots and dashes are mixed up</summary>
+    <p>Move <b>Dash starts at</b>. If a quick blink becomes a dash, raise it. If a long blink becomes a dot, lower it. Keep a steady rhythm.</p>
+  </details>
+
+  <details><summary>Letters are not typed into other apps</summary>
+    <p>Check that GhostWink is on in Accessibility and that you are in <b>TYPE</b> mode. Tap the text box so the keyboard is open before you blink. After updating the app, turn the Accessibility switch off and on. Password fields are blocked on purpose.</p>
+  </details>
+
+  <details><summary>It stops when the screen turns off</summary>
+    <p>Most Android phones stop camera access when the screen is off, so GhostWink needs the screen on. Lower the screen brightness instead. Also set Settings, Apps, GhostWink, Battery, to <b>Unrestricted</b>.</p>
+  </details>
+
+  <details><summary>I hear no voice</summary>
+    <p>Turn up the <b>media volume</b> and make sure <b>VOICE</b> is ON in the app. In phone Settings, search "Text-to-speech" and select <b>Speech Recognition and Synthesis from Google</b>.</p>
+  </details>
+
+  <details><summary>Mode keeps flipping by accident</summary>
+    <p>You are closing your eyes for about 3 seconds. Blink shorter, or look away from the camera during long pauses.</p>
+  </details>
+
+  <details><summary>"App not installed" when updating</summary>
+    <p>Builds are signed with a debug key that changes between builds. Uninstall the old GhostWink first, then install the new one.</p>
+  </details>
+
+  <details class="warn"><summary>Safety</summary>
+    <p>GhostWink is for convenience and accessibility. Do not rely on it for emergencies, driving, or anything critical. It never types into password fields. It has no internet permission, so nothing leaves your phone.</p>
+  </details>
+
+  <footer>GHOSTWINK // free forever</footer>
+</div>
+</body>
+</html>
