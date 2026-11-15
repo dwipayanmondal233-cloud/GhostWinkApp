@@ -4,13 +4,17 @@ import android.Manifest
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -22,6 +26,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
+
+    private val bg = Color.parseColor("#05070D")
+    private val panel = Color.parseColor("#0B1220")
+    private val border = Color.parseColor("#12304A")
+    private val cyan = Color.parseColor("#00E5FF")
+    private val green = Color.parseColor("#39FF88")
+    private val red = Color.parseColor("#FF2E63")
+    private val amber = Color.parseColor("#FFC400")
+    private val dim = Color.parseColor("#6F8AA3")
+    private val textC = Color.parseColor("#C9D6E2")
 
     private lateinit var prefs: SharedPreferences
     private val handler = Handler(Looper.getMainLooper())
@@ -42,7 +56,7 @@ class MainActivity : ComponentActivity() {
 
     private val permLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            if (hasCamera()) startGhost() else statusT.text = "Camera permission is needed 😢"
+            if (hasCamera()) startGhost() else statusT.text = "> CAMERA PERMISSION REQUIRED"
         }
 
     private fun hasCamera() = ContextCompat.checkSelfPermission(
@@ -55,20 +69,64 @@ class MainActivity : ComponentActivity() {
         ContextCompat.startForegroundService(this, Intent(this, GhostService::class.java))
     }
 
+    private fun mono(t: TextView, size: Float, color: Int, bold: Boolean = false) {
+        t.typeface = Typeface.create(Typeface.MONOSPACE, if (bold) Typeface.BOLD else Typeface.NORMAL)
+        t.textSize = size
+        t.setTextColor(color)
+    }
+
     private fun label(t: String): TextView {
         val v = TextView(this)
-        v.text = t
-        v.setTextColor(Color.parseColor("#B8B0D8"))
-        v.textSize = 13f
-        v.setPadding(0, dp(10), 0, 0)
+        v.text = t.uppercase()
+        mono(v, 11f, dim)
+        v.letterSpacing = 0.15f
+        v.setPadding(0, dp(14), 0, dp(4))
         return v
     }
 
-    private fun btn(t: String, onClick: () -> Unit): Button {
+    private fun card(): LinearLayout {
+        val c = LinearLayout(this)
+        c.orientation = LinearLayout.VERTICAL
+        c.setPadding(dp(14), dp(6), dp(14), dp(14))
+        val b = GradientDrawable()
+        b.cornerRadius = dp(10).toFloat()
+        b.setColor(panel)
+        b.setStroke(dp(1), border)
+        c.background = b
+        val lp = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        lp.topMargin = dp(14)
+        c.layoutParams = lp
+        return c
+    }
+
+    private fun neonBtn(t: String, color: Int, onClick: () -> Unit): Button {
         val b = Button(this)
         b.text = t
+        b.isAllCaps = true
+        b.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        b.textSize = 14f
+        b.letterSpacing = 0.1f
+        b.setTextColor(color)
+        b.stateListAnimator = null
+        val d = GradientDrawable()
+        d.cornerRadius = dp(8).toFloat()
+        d.setColor(Color.parseColor("#08111C"))
+        d.setStroke(dp(2), color)
+        b.background = d
+        val lp = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(52)
+        )
+        lp.topMargin = dp(10)
+        b.layoutParams = lp
         b.setOnClickListener { onClick() }
         return b
+    }
+
+    private fun tintSeek(s: SeekBar, color: Int) {
+        s.progressTintList = ColorStateList.valueOf(color)
+        s.thumbTintList = ColorStateList.valueOf(color)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,102 +137,129 @@ class MainActivity : ComponentActivity() {
         lg = prefs.getInt("lg", 1200)
 
         val scroll = ScrollView(this)
-        scroll.setBackgroundColor(Color.parseColor("#0F0B1E"))
+        scroll.setBackgroundColor(bg)
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
-        col.setPadding(dp(16), dp(32), dp(16), dp(24))
+        col.setPadding(dp(18), dp(40), dp(18), dp(28))
 
         val title = TextView(this)
-        title.text = "👻 GhostWink"
-        title.textSize = 28f
-        title.setTextColor(Color.parseColor("#B69CFF"))
+        title.text = "GHOSTWINK"
+        mono(title, 30f, cyan, true)
+        title.letterSpacing = 0.25f
         col.addView(title)
 
-        col.addView(btn("▶️ Start GhostWink") {
+        val sub = TextView(this)
+        sub.text = "// hands-free control. blink to execute."
+        mono(sub, 12f, dim)
+        col.addView(sub)
+
+        col.addView(neonBtn("\u25B6  START", green) {
             if (hasCamera()) startGhost() else {
                 val perms = mutableListOf(Manifest.permission.CAMERA)
                 if (Build.VERSION.SDK_INT >= 33) perms.add(Manifest.permission.POST_NOTIFICATIONS)
                 permLauncher.launch(perms.toTypedArray())
             }
         })
-        col.addView(btn("⏹ Stop") {
+        col.addView(neonBtn("\u25A0  STOP", red) {
             stopService(Intent(this, GhostService::class.java))
         })
-        col.addView(btn("🟢 Allow status dot (Display over other apps)") {
+        col.addView(neonBtn("\u25C9  ALLOW STATUS DOT", cyan) {
             startActivity(
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
             )
         })
 
-        faceT = label("Stopped 😴")
-        col.addView(faceT)
+        // ---- Live terminal card ----
+        val term = card()
+        faceT = label("")
+        faceT.text = "STANDBY"
+        term.addView(faceT)
         statusT = TextView(this)
-        statusT.setTextColor(Color.parseColor("#FFD166"))
-        col.addView(statusT)
+        mono(statusT, 13f, amber)
+        term.addView(statusT)
 
-        col.addView(label("Typed text (practice: SOS)"))
+        term.addView(label("output"))
         outT = TextView(this)
-        outT.textSize = 28f
-        outT.setTextColor(Color.WHITE)
-        outT.minHeight = dp(44)
-        col.addView(outT)
-        seqT = TextView(this)
-        seqT.textSize = 30f
-        seqT.setTextColor(Color.parseColor("#7CFFC4"))
-        seqT.minHeight = dp(44)
-        col.addView(seqT)
-        evtT = TextView(this)
-        evtT.textSize = 18f
-        evtT.setTextColor(Color.parseColor("#FFD166"))
-        evtT.minHeight = dp(30)
-        col.addView(evtT)
+        mono(outT, 26f, Color.WHITE, true)
+        outT.minHeight = dp(40)
+        term.addView(outT)
 
-        col.addView(label("Eyes closed"))
+        term.addView(label("signal"))
+        seqT = TextView(this)
+        mono(seqT, 28f, green, true)
+        seqT.letterSpacing = 0.2f
+        seqT.minHeight = dp(40)
+        term.addView(seqT)
+
+        evtT = TextView(this)
+        mono(evtT, 15f, amber)
+        evtT.minHeight = dp(26)
+        term.addView(evtT)
+
+        term.addView(label("eye closure"))
         eyeBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal)
         eyeBar.max = 100
-        col.addView(eyeBar)
+        eyeBar.progressTintList = ColorStateList.valueOf(cyan)
+        eyeBar.progressBackgroundTintList = ColorStateList.valueOf(border)
+        term.addView(eyeBar)
+        col.addView(term)
+
+        // ---- Tuning card ----
+        val tune = card()
+        tune.addView(label("// tuning"))
 
         thL = label("")
-        col.addView(thL)
+        tune.addView(thL)
         val thBar = SeekBar(this)
         thBar.max = 80
         thBar.progress = ((th * 100).toInt() - 10).coerceIn(0, 80)
+        tintSeek(thBar, cyan)
         thBar.setOnSeekBarChangeListener(listener { p ->
             th = (p + 10) / 100f
             prefs.edit().putFloat("th", th).apply()
             GhostService.instance?.reloadSettings()
             labels()
         })
-        col.addView(thBar)
+        tune.addView(thBar)
 
         dsL = label("")
-        col.addView(dsL)
+        tune.addView(dsL)
         val dsBar = SeekBar(this)
         dsBar.max = 1000
         dsBar.progress = (ds - 400).coerceIn(0, 1000)
+        tintSeek(dsBar, green)
         dsBar.setOnSeekBarChangeListener(listener { p ->
             ds = p + 400
             prefs.edit().putInt("ds", ds).apply()
             GhostService.instance?.reloadSettings()
             labels()
         })
-        col.addView(dsBar)
+        tune.addView(dsBar)
 
         lgL = label("")
-        col.addView(lgL)
+        tune.addView(lgL)
         val lgBar = SeekBar(this)
         lgBar.max = 1700
         lgBar.progress = (lg - 800).coerceIn(0, 1700)
+        tintSeek(lgBar, amber)
         lgBar.setOnSeekBarChangeListener(listener { p ->
             lg = p + 800
             prefs.edit().putInt("lg", lg).apply()
             GhostService.instance?.reloadSettings()
             labels()
         })
-        col.addView(lgBar)
+        tune.addView(lgBar)
 
-        col.addView(btn("🎯 Calibrate") { GhostService.instance?.calibrate() })
-        col.addView(btn("Reset text") { GhostService.instance?.resetText() })
+        tune.addView(neonBtn("\u2316  CALIBRATE", cyan) { GhostService.instance?.calibrate() })
+        tune.addView(neonBtn("\u27F2  RESET TEXT", dim) { GhostService.instance?.resetText() })
+        col.addView(tune)
+
+        val foot = TextView(this)
+        foot.text = "practice: SOS  \u00B7 \u00B7 \u00B7  \u2212 \u2212 \u2212  \u00B7 \u00B7 \u00B7"
+        mono(foot, 11f, dim)
+        foot.gravity = Gravity.CENTER
+        foot.setPadding(0, dp(18), 0, 0)
+        col.addView(foot)
 
         labels()
         scroll.addView(col)
@@ -192,25 +277,26 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun labels() {
-        thL.text = "Blink sensitivity: ${"%.2f".format(th)} (lower = easier)"
-        dsL.text = "Dash starts at: $ds ms"
-        lgL.text = "Pause to finish a letter: $lg ms"
+        thL.text = "BLINK THRESHOLD: ${"%.2f".format(th)}  (LOWER = EASIER)"
+        dsL.text = "DASH STARTS AT: $ds MS"
+        lgL.text = "LETTER GAP: $lg MS"
     }
 
     private val poll = object : Runnable {
         override fun run() {
             val s = GhostService.instance
             if (s == null) {
-                faceT.text = "Stopped 😴 Tap Start"
+                faceT.text = "STANDBY \u2014 TAP START"
+                faceT.setTextColor(dim)
                 eyeBar.progress = 0
             } else {
-                faceT.text = s.faceText
+                faceT.text = s.faceText.uppercase()
+                faceT.setTextColor(if (s.faceText.startsWith("FACE")) green else amber)
                 statusT.text = s.status
-                outT.text = s.text + if (s.text.trim() == "SOS") "  ✅" else ""
-                seqT.text = s.seq.replace('.', '·').replace('-', '−')
+                outT.text = s.text + if (s.text.trim() == "SOS") "  \u2714" else ""
+                seqT.text = s.seq.replace('.', '\u00B7').replace('-', '\u2212')
                 evtT.text = s.evt
                 eyeBar.progress = (s.eye * 100).toInt()
-                // keep sliders in sync after calibration
                 val newTh = prefs.getFloat("th", th)
                 if (newTh != th) {
                     th = newTh

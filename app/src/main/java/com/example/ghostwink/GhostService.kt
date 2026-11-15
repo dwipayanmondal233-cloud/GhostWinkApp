@@ -170,9 +170,9 @@ class GhostService : LifecycleService() {
     private fun refreshDot() {
         val now = SystemClock.uptimeMillis()
         val color = when {
-            now < flashUntil -> Color.parseColor("#FFD166")
-            closed -> Color.parseColor("#FF6B9D")
-            faceOk -> Color.parseColor("#4CE08A")
+            now < flashUntil ->Color.parseColor("#00E5FF")
+            closed -> Color.parseColor("#FF2E63")
+            faceOk -> Color.parseColor("#39FF88")
             else -> Color.GRAY
         }
         dotBg?.setColor(color)
@@ -241,7 +241,7 @@ class GhostService : LifecycleService() {
         val m = min(l, r)
         eye = m
         faceOk = true
-        faceText = "Face found ✅"
+        faceText = "FACE LOCKED"
         if (calibrating) {
             samples.add(m)
             refreshDot()
@@ -354,7 +354,7 @@ class GhostService : LifecycleService() {
             } else {
                 handler.post {
                     faceOk = false
-                    faceText = "No face found. Move closer / add light."
+                   faceText = "NO FACE - move closer / add light"
                     refreshDot()
                 }
             }
