@@ -52,6 +52,15 @@ class GhostAccess : AccessibilityService() {
         else swipe(w / 2, h * 0.3f, w / 2, h * 0.7f, 350)
     }
 
+    fun tapAt(x: Float, y: Float) {
+        val p = Path()
+        p.moveTo(x, y)
+        val g = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(p, 0, 60))
+            .build()
+        dispatchGesture(g, null, null)
+    }
+
     fun tapCenter() {
         val w = resources.displayMetrics.widthPixels.toFloat()
         val h = resources.displayMetrics.heightPixels.toFloat()

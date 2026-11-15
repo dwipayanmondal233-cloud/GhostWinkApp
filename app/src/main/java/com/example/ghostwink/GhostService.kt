@@ -222,7 +222,7 @@ class GhostService : LifecycleService() {
                         GhostAccess.instance?.typeText(ch)
                     }
                     show(if (controlMode) ch else "Letter $ch")
-                    if (controlMode) say(ch.lowercase())
+                    if (controlMode) { /* silent */ }
                     else if (prefs.getBoolean("sayletters", false)) say(ch, flush = false)
                     beep(ToneGenerator.TONE_PROP_ACK, 120)
                     flash()
@@ -251,10 +251,12 @@ class GhostService : LifecycleService() {
         beep(ToneGenerator.TONE_PROP_BEEP, if (c == '.') 80 else 200)
     }
 
-    private fun process(l: Float, r: Float, brow: Float) {
+    private fun process(l: Float, r: Float, brow: Float, nx: Float, ny: Float) {
         val now = SystemClock.uptimeMillis()
         val m = min(l, r)
         eye = m
+        lastNx = nx
+        lastNy = ny
         faceOk = true
         faceText = "FACE LOCKED"
         if (calibrating) {
@@ -269,18 +271,23 @@ class GhostService : LifecycleService() {
             closed = false
             val d = now - closedAt
             if (d >= 2500) toggleMode()
-            else if (d >= 250) addSymbol(if (d >= ds) '-' else '.')
+            else if (cursorMode) {
+                if (d >= ds) clickCursor()
+            } else if (d >= 250) addSymbol(if (d >= ds) '-' else '.')
         }
         if (brow > 0.55f && !browUp && now > browLock) {
             browUp = true
             browLock = now + 900
-            if (seq.isNotEmpty()) seq = seq.dropLast(1)
+            if (controlMode) {
+                toggleCursor()
+            } else if (seq.isNotEmpty()) seq = seq.dropLast(1)
             else if (!controlMode) {
                 text = text.dropLast(1)
                 GhostAccess.instance?.deleteLast()
             }
-            show("🤨 backspace")
+            if (!controlMode) show("🤨 backspace")
         } else if (brow < 0.35f) browUp = false
+        if (cursorMode && !closed) updateCursor(nx, ny)
         refreshDot()
     }
 
@@ -298,6 +305,7 @@ class GhostService : LifecycleService() {
     }
 
     private fun toggleMode() {
+        if (cursorMode) leaveCursor()
         controlMode = !controlMode
         seq = ""
         show(if (controlMode) "MODE: CONTROL" else "MODE: TYPE")
@@ -318,6 +326,60 @@ class GhostService : LifecycleService() {
             ".-" -> { a.recents(); "RECENTS" }
             else -> null
         }
+    }
+
+    var cursorMode = false
+    private var monkey: MonkeyCursor? = null
+    private var neutralX = 0.5f
+    private var neutralY = 0.5f
+    private var lastNx = 0.5f
+    private var lastNy = 0.5f
+
+    private fun toggleCursor() {
+        if (!cursorMode) {
+            if (!Settings.canDrawOverlays(this)) {
+                show("ALLOW DISPLAY OVER OTHER APPS")
+                return
+            }
+            if (GhostAccess.instance == null) {
+                show("ENABLE ACTIONS (ACCESSIBILITY) FIRST")
+                return
+            }
+            cursorMode = true
+            seq = ""
+            neutralX = lastNx
+            neutralY = lastNy
+            if (monkey == null) monkey = MonkeyCursor(this)
+            val dm = resources.displayMetrics
+            monkey?.show(dm.widthPixels / 2f, dm.heightPixels / 2f)
+            show("MODE: CURSOR")
+            say("Cursor mode")
+        } else {
+            leaveCursor()
+            show("MODE: CONTROL")
+            say("Control mode")
+        }
+        beep(ToneGenerator.TONE_PROP_BEEP2, 250)
+        flash()
+    }
+
+    private fun leaveCursor() {
+        cursorMode = false
+        monkey?.hide()
+    }
+
+    private fun updateCursor(nx: Float, ny: Float) {
+        val dm = resources.displayMetrics
+        val gain = prefs.getInt("cgain", 6).toFloat()
+        val sign = if (prefs.getBoolean("cinvert", false)) -1f else 1f
+        val tx = dm.widthPixels / 2f + (neutralX - nx) * sign * gain * dm.widthPixels
+        val ty = dm.heightPixels / 2f + (ny - neutralY) * gain * 1.5f * dm.heightPixels
+        monkey?.moveTo(tx, ty)
+    }
+
+    private fun clickCursor() {
+        monkey?.slam { x, y -> GhostAccess.instance?.tapAt(x, y) }
+        beep(ToneGenerator.TONE_PROP_BEEP, 80)
     }
 
     fun resetText() {
@@ -409,7 +471,10 @@ class GhostService : LifecycleService() {
                     }
                 }
                 val brow = (b1 + b2 + b3) / 3f
-                handler.post { process(l, r, brow) }
+                val nose = res.faceLandmarks()[0][1]
+                val nx = nose.x()
+                val ny = nose.y()
+                handler.post { process(l, r, brow, nx, ny) }
             } else {
                 handler.post {
                     faceOk = false
@@ -435,6 +500,7 @@ class GhostService : LifecycleService() {
             dot?.let { wm?.removeView(it) }
         } catch (e: Exception) {
         }
+        monkey?.hide()
         tts?.stop()
         tts?.shutdown()
         executor.shutdown()

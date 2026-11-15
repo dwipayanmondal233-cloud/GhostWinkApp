@@ -247,6 +247,36 @@ class MainActivity : ComponentActivity() {
         paintVoice()
         col.addView(voice)
 
+        // ---- Cursor card ----
+        val cur = card()
+        cur.addView(label("// monkey cursor"))
+        val gainL = label("")
+        fun gainText() {
+            gainL.text = "CURSOR SPEED: ${prefs.getInt("cgain", 6)}"
+        }
+        gainText()
+        cur.addView(gainL)
+        val gainBar = SeekBar(this)
+        gainBar.max = 14
+        gainBar.progress = (prefs.getInt("cgain", 6) - 2).coerceIn(0, 14)
+        tintSeek(gainBar, green)
+        gainBar.setOnSeekBarChangeListener(listener { p ->
+            prefs.edit().putInt("cgain", p + 2).apply()
+            gainText()
+        })
+        cur.addView(gainBar)
+        lateinit var invBtn: Button
+        fun paintInv() {
+            invBtn.text = if (prefs.getBoolean("cinvert", false)) "FLIP LEFT/RIGHT: ON" else "FLIP LEFT/RIGHT: OFF"
+        }
+        invBtn = neonBtn("", amber) {
+            prefs.edit().putBoolean("cinvert", !prefs.getBoolean("cinvert", false)).apply()
+            paintInv()
+        }
+        cur.addView(invBtn)
+        paintInv()
+        col.addView(cur)
+
         // ---- Tuning card ----
         val tune = card()
         tune.addView(label("// tuning"))
@@ -333,7 +363,7 @@ class MainActivity : ComponentActivity() {
                 faceT.setTextColor(dim)
                 eyeBar.progress = 0
             } else {
-                faceT.text = s.faceText.uppercase() + "  |  " + (if (s.controlMode) "CONTROL" else "TYPE")
+                faceT.text = s.faceText.uppercase() + "  |  " + (if (s.cursorMode) "CURSOR" else if (s.controlMode) "CONTROL" else "TYPE")
                 faceT.setTextColor(if (s.faceText.startsWith("FACE")) green else amber)
                 statusT.text = s.status
                 outT.text = s.text + if (s.text.trim() == "SOS") "  \u2714" else ""
