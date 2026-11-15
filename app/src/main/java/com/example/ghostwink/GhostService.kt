@@ -206,10 +206,13 @@ class GhostService : LifecycleService() {
         override fun run() {
             val now = SystemClock.uptimeMillis()
             if (seq.isNotEmpty() && now - lastSym > lg) {
-                val ch = morse[seq]
+                val ch = if (controlMode) runCommand(seq) else morse[seq]
                 if (ch != null) {
-                    text += ch
-                    show("Letter $ch")
+                     if (!controlMode) {
+                        text += ch
+                        GhostAccess.instance?.typeText(ch)
+                    }
+                   show(if (controlMode) ch else "Letter $ch")
                     beep(ToneGenerator.TONE_PROP_ACK, 120)
                     flash()
                 } else {
@@ -222,6 +225,7 @@ class GhostService : LifecycleService() {
                 lastSym != 0L && now - lastSym > 2500 && !text.endsWith(" ")
             ) {
                 text += " "
+                if (!controlMode) GhostAccess.instance?.typeText(" ")
                 spaceAdded = true
             }
             handler.postDelayed(this, 100)
@@ -253,15 +257,43 @@ class GhostService : LifecycleService() {
         } else if (closed && m < th * 0.7f) {
             closed = false
             val d = now - closedAt
-            if (d in 250..2999) addSymbol(if (d >= ds) '-' else '.')
+           if (d >= 2500) toggleMode() else if (d >= 250) addSymbol(if (d >= ds) '-' else '.')
         }
         if (brow > 0.55f && !browUp && now > browLock) {
             browUp = true
             browLock = now + 900
-            if (seq.isNotEmpty()) seq = seq.dropLast(1) else text = text.dropLast(1)
+            if (seq.isNotEmpty()) seq = seq.dropLast(1)
+            else if (!controlMode) {
+                text = text.dropLast(1)
+                GhostAccess.instance?.deleteLast()
+            }
             show("🤨 backspace")
         } else if (brow < 0.35f) browUp = false
         refreshDot()
+    }
+
+    var controlMode = false
+
+    private fun toggleMode() {
+        controlMode = !controlMode
+        seq = ""
+        show(if (controlMode) "MODE: CONTROL" else "MODE: TYPE")
+        beep(ToneGenerator.TONE_PROP_BEEP2, 400)
+        flash()
+    }
+
+    private fun runCommand(code: String): String? {
+        val a = GhostAccess.instance ?: return "ENABLE GHOSTWINK IN ACCESSIBILITY"
+        return when (code) {
+            "." -> { a.scroll(true); "SCROLL DOWN" }
+            "-" -> { a.scroll(false); "SCROLL UP" }
+            ".." -> { a.back(); "BACK" }
+            "--" -> { a.home(); "HOME" }
+            "..." -> { a.notifications(); "NOTIFICATIONS" }
+            "-." -> { a.tapCenter(); "TAP" }
+            ".-" -> { a.recents(); "RECENTS" }
+            else -> null
+        }
     }
 
     fun resetText() {

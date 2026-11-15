@@ -169,6 +169,10 @@ class MainActivity : ComponentActivity() {
             )
         })
 
+        col.addView(neonBtn("\u2699  ENABLE ACTIONS (ACCESSIBILITY)", amber) {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        })
+
         // ---- Live terminal card ----
         val term = card()
         faceT = label("")
@@ -290,7 +294,7 @@ class MainActivity : ComponentActivity() {
                 faceT.setTextColor(dim)
                 eyeBar.progress = 0
             } else {
-                faceT.text = s.faceText.uppercase()
+                faceT.text = s.faceText.uppercase() + "  |  " + (if (s.controlMode) "CONTROL" else "TYPE")
                 faceT.setTextColor(if (s.faceText.startsWith("FACE")) green else amber)
                 statusT.text = s.status
                 outT.text = s.text + if (s.text.trim() == "SOS") "  \u2714" else ""
