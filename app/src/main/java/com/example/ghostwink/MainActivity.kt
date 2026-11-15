@@ -173,6 +173,10 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         })
 
+            col.addView(neonBtn("\u25B6  PRACTICE MODE", Color.WHITE) {
+            startActivity(Intent(this, PracticeActivity::class.java))
+        })
+
         // ---- Live terminal card ----
         val term = card()
         faceT = label("")

@@ -23,6 +23,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".PracticeActivity"
+            android:exported="false" />
+
         <service
             android:name=".GhostService"
             android:exported="false"

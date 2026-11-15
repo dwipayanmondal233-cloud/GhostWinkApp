@@ -219,7 +219,9 @@ class GhostService : LifecycleService() {
                 if (ch != null) {
                     if (!controlMode) {
                         text += ch
-                        GhostAccess.instance?.typeText(ch)
+                        lastLetter = ch
+                        letterSerial++
+                        if (!practice) GhostAccess.instance?.typeText(ch)
                     }
                     show(if (controlMode) ch else "Letter $ch")
                     if (controlMode) { /* silent */ }
@@ -236,7 +238,7 @@ class GhostService : LifecycleService() {
                 lastSym != 0L && now - lastSym > 2500 && !text.endsWith(" ")
             ) {
                 text += " "
-                if (!controlMode) GhostAccess.instance?.typeText(" ")
+                if (!controlMode && !practice) GhostAccess.instance?.typeText(" ")
                 spaceAdded = true
             }
             handler.postDelayed(this, 100)
@@ -283,7 +285,7 @@ class GhostService : LifecycleService() {
             } else if (seq.isNotEmpty()) seq = seq.dropLast(1)
             else if (!controlMode) {
                 text = text.dropLast(1)
-                GhostAccess.instance?.deleteLast()
+                if (!practice) GhostAccess.instance?.deleteLast()
             }
             if (!controlMode) show("🤨 backspace")
         } else if (brow < 0.35f) browUp = false
@@ -315,6 +317,23 @@ class GhostService : LifecycleService() {
     }
 
     private fun runCommand(code: String): String? {
+        if (practice) {
+            val name = when (code) {
+                "." -> "SCROLL DOWN"
+                "-" -> "SCROLL UP"
+                ".." -> "BACK"
+                "--" -> "HOME"
+                "..." -> "NOTIFICATIONS"
+                "-." -> "TAP"
+                ".-" -> "RECENTS"
+                else -> null
+            }
+            if (name != null) {
+                lastCmd = name
+                cmdSerial++
+            }
+            return name
+        }
         val a = GhostAccess.instance ?: return "ENABLE GHOSTWINK IN ACCESSIBILITY"
         return when (code) {
             "." -> { a.scroll(true); "SCROLL DOWN" }
@@ -341,7 +360,7 @@ class GhostService : LifecycleService() {
                 show("ALLOW DISPLAY OVER OTHER APPS")
                 return
             }
-            if (GhostAccess.instance == null) {
+            if (GhostAccess.instance == null && !practice) {
                 show("ENABLE ACTIONS (ACCESSIBILITY) FIRST")
                 return
             }
@@ -378,8 +397,23 @@ class GhostService : LifecycleService() {
     }
 
     private fun clickCursor() {
-        monkey?.slam { x, y -> GhostAccess.instance?.tapAt(x, y) }
+        monkey?.slam { x, y ->
+            if (practice) practiceClick?.invoke(x, y) else GhostAccess.instance?.tapAt(x, y)
+        }
         beep(ToneGenerator.TONE_PROP_BEEP, 80)
+    }
+
+    var practice = false
+    var lastLetter = ""
+    var letterSerial = 0
+    var lastCmd = ""
+    var cmdSerial = 0
+    var practiceClick: ((Float, Float) -> Unit)? = null
+
+    fun resetModes() {
+        if (cursorMode) leaveCursor()
+        controlMode = false
+        seq = ""
     }
 
     fun resetText() {
