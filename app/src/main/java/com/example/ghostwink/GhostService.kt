@@ -19,6 +19,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -92,6 +94,13 @@ class GhostService : LifecycleService() {
         instance = this
         prefs = getSharedPreferences("gw", MODE_PRIVATE)
         reloadSettings()
+        tts = TextToSpeech(this) { code ->
+            if (code == TextToSpeech.SUCCESS) {
+                tts?.language = Locale.US
+                ttsReady = true
+                say("GhostWink active")
+            }
+        }
         try {
             tone = ToneGenerator(AudioManager.STREAM_MUSIC, 60)
         } catch (e: Exception) {
@@ -170,7 +179,7 @@ class GhostService : LifecycleService() {
     private fun refreshDot() {
         val now = SystemClock.uptimeMillis()
         val color = when {
-            now < flashUntil ->Color.parseColor("#00E5FF")
+            now < flashUntil -> Color.parseColor("#00E5FF")
             closed -> Color.parseColor("#FF2E63")
             faceOk -> Color.parseColor("#39FF88")
             else -> Color.GRAY
@@ -208,11 +217,13 @@ class GhostService : LifecycleService() {
             if (seq.isNotEmpty() && now - lastSym > lg) {
                 val ch = if (controlMode) runCommand(seq) else morse[seq]
                 if (ch != null) {
-                     if (!controlMode) {
+                    if (!controlMode) {
                         text += ch
                         GhostAccess.instance?.typeText(ch)
                     }
-                   show(if (controlMode) ch else "Letter $ch")
+                    show(if (controlMode) ch else "Letter $ch")
+                    if (controlMode) say(ch.lowercase())
+                    else if (prefs.getBoolean("sayletters", false)) say(ch, flush = false)
                     beep(ToneGenerator.TONE_PROP_ACK, 120)
                     flash()
                 } else {
@@ -257,7 +268,8 @@ class GhostService : LifecycleService() {
         } else if (closed && m < th * 0.7f) {
             closed = false
             val d = now - closedAt
-           if (d >= 2500) toggleMode() else if (d >= 250) addSymbol(if (d >= ds) '-' else '.')
+            if (d >= 2500) toggleMode()
+            else if (d >= 250) addSymbol(if (d >= ds) '-' else '.')
         }
         if (brow > 0.55f && !browUp && now > browLock) {
             browUp = true
@@ -274,10 +286,22 @@ class GhostService : LifecycleService() {
 
     var controlMode = false
 
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
+    private var lastNoFace = 0L
+
+    fun say(msg: String, flush: Boolean = true) {
+        if (!ttsReady || !prefs.getBoolean("voice", true)) return
+        tts?.setSpeechRate(prefs.getInt("vrate", 100) / 100f)
+        val q = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+        tts?.speak(msg, q, null, "gw")
+    }
+
     private fun toggleMode() {
         controlMode = !controlMode
         seq = ""
         show(if (controlMode) "MODE: CONTROL" else "MODE: TYPE")
+        say(if (controlMode) "Switched to control mode" else "Switched to type mode")
         beep(ToneGenerator.TONE_PROP_BEEP2, 400)
         flash()
     }
@@ -307,6 +331,7 @@ class GhostService : LifecycleService() {
         if (calibrating) return
         calibrating = true
         status = "Step 1: keep eyes OPEN, look at the screen..."
+        say("Keep your eyes open")
         var open = 0f
         handler.postDelayed({ samples.clear() }, 1500)
         handler.postDelayed({
@@ -314,6 +339,7 @@ class GhostService : LifecycleService() {
             samples.clear()
             beep(ToneGenerator.TONE_PROP_BEEP, 200)
             status = "Step 2: CLOSE your eyes until you hear the beep"
+            say("Now close your eyes")
         }, 3500)
         handler.postDelayed({ samples.clear() }, 4200)
         handler.postDelayed({
@@ -325,6 +351,7 @@ class GhostService : LifecycleService() {
                 th = (Math.round((open + (closedAvg - open) * 0.5f) * 20) / 20f).coerceIn(0.1f, 0.9f)
                 prefs.edit().putFloat("th", th).apply()
                 status = "Calibrated ✅ Open=${"%.2f".format(open)} Closed=${"%.2f".format(closedAvg)} Sensitivity=${"%.2f".format(th)}"
+                say("Calibrated")
             }
             calibrating = false
             closed = false
@@ -386,7 +413,11 @@ class GhostService : LifecycleService() {
             } else {
                 handler.post {
                     faceOk = false
-                   faceText = "NO FACE - move closer / add light"
+                    faceText = "NO FACE - move closer / add light"
+                    if (SystemClock.uptimeMillis() - lastNoFace > 15000) {
+                        lastNoFace = SystemClock.uptimeMillis()
+                        say("I can't see your face")
+                    }
                     refreshDot()
                 }
             }
@@ -404,6 +435,8 @@ class GhostService : LifecycleService() {
             dot?.let { wm?.removeView(it) }
         } catch (e: Exception) {
         }
+        tts?.stop()
+        tts?.shutdown()
         executor.shutdown()
         landmarker?.close()
         tone?.release()

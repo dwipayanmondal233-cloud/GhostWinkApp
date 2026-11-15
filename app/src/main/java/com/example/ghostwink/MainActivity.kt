@@ -208,6 +208,45 @@ class MainActivity : ComponentActivity() {
         term.addView(eyeBar)
         col.addView(term)
 
+        // ---- Voice card ----
+        val voice = card()
+        voice.addView(label("// voice assistant"))
+        lateinit var voiceBtn: Button
+        lateinit var lettersBtn: Button
+        fun paintVoice() {
+            voiceBtn.text = if (prefs.getBoolean("voice", true)) "VOICE: ON" else "VOICE: OFF"
+            lettersBtn.text = if (prefs.getBoolean("sayletters", false)) "SPEAK LETTERS: ON" else "SPEAK LETTERS: OFF"
+        }
+        voiceBtn = neonBtn("", green) {
+            prefs.edit().putBoolean("voice", !prefs.getBoolean("voice", true)).apply()
+            paintVoice()
+            GhostService.instance?.say("Voice on")
+        }
+        lettersBtn = neonBtn("", cyan) {
+            prefs.edit().putBoolean("sayletters", !prefs.getBoolean("sayletters", false)).apply()
+            paintVoice()
+        }
+        voice.addView(voiceBtn)
+        voice.addView(lettersBtn)
+        val rateL = label("")
+        rateL.text = "VOICE SPEED: ${prefs.getInt("vrate", 100)}%"
+        voice.addView(rateL)
+        val rateBar = SeekBar(this)
+        rateBar.max = 100
+        rateBar.progress = (prefs.getInt("vrate", 100) - 50).coerceIn(0, 100)
+        tintSeek(rateBar, amber)
+        rateBar.setOnSeekBarChangeListener(listener { p ->
+            prefs.edit().putInt("vrate", p + 50).apply()
+            rateL.text = "VOICE SPEED: ${p + 50}%"
+        })
+        voice.addView(rateBar)
+        voice.addView(neonBtn("TEST VOICE", amber) {
+            GhostService.instance?.say("Hello. I am GhostWink.")
+                ?: run { statusT.text = "> START GHOSTWINK FIRST" }
+        })
+        paintVoice()
+        col.addView(voice)
+
         // ---- Tuning card ----
         val tune = card()
         tune.addView(label("// tuning"))
