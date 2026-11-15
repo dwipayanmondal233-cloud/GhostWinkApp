@@ -8,19 +8,6 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
-        <service
-            android:name=".GhostAccess"
-            android:exported="true"
-            android:label="GhostWink"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/ghost_access_config" />
-        </service>
-
     <application
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
@@ -40,6 +27,19 @@
             android:name=".GhostService"
             android:exported="false"
             android:foregroundServiceType="camera" />
+
+        <service
+            android:name=".GhostAccess"
+            android:exported="true"
+            android:label="GhostWink"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/ghost_access_config" />
+        </service>
 
     </application>
 </manifest>
