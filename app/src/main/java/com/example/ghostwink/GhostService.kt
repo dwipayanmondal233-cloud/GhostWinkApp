@@ -358,7 +358,7 @@ class GhostService : LifecycleService() {
         lastNx = nx
         lastNy = ny
         faceOk = true
-        faceText = "FACE LOCKED"
+        faceText = "FACE LOCKED  J:${"%.2f".format(jaw)} T:${"%.2f".format(tongue)}"
         if (calibrating) {
             samples.add(m)
             refreshDot()
@@ -396,12 +396,14 @@ class GhostService : LifecycleService() {
             }
         } else if (brow < 0.35f) browUp = false
 
-        // mouth gestures (CONTROL and CURSOR modes only)
-        if (controlMode) {
-            if (tongue > 0.45f) {
+        // mouth gestures
+        val tT = 0.25f
+        val jT = 0.4f
+        if (true) {
+             if (tongue > tT) {
                 if (tongueAt == 0L) tongueAt = now
             } else tongueAt = 0L
-            if (jaw > 0.55f && tongue < 0.3f) {
+            if (jaw > jT && tongue < tT) {
                 if (jawAt == 0L) jawAt = now
             } else jawAt = 0L
             if (smile > 0.65f && jaw < 0.3f) {
@@ -412,8 +414,8 @@ class GhostService : LifecycleService() {
             } else puckerAt = 0L
 
             if (now >= mouthLock) {
-                if (tongueAt != 0L && now - tongueAt > 500) navigate("BACK")
-                else if (jawAt != 0L && now - jawAt > 700) navigate("HOME")
+                if (tongueAt != 0L && now - tongueAt > 400) navigate("BACK")
+                else if (jawAt != 0L && now - jawAt > 600) navigate("HOME")
                 else if (cursorMode && prefs.getBoolean("smile", true) &&
                     smileAt != 0L && now - smileAt > 600
                 ) likeCursor()
