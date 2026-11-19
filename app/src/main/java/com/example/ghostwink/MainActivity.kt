@@ -344,7 +344,7 @@ class MainActivity : ComponentActivity() {
 
         val extra = card()
         extra.addView(label("// extras"))
-        extra.addView(toggleBtn("KISS = VOLUME", "kiss", true, green))
+        extra.addView(toggleBtn("KISS = BACK", "kiss", true, green))
         extra.addView(toggleBtn("NIGHT MODE", "night", false, cyan) {
             GhostService.instance?.applyNight()
         })

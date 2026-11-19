@@ -97,13 +97,10 @@ class GhostService : LifecycleService() {
     private var flashUntil = 0L
 
     // mouth gestures
-    private var tongueAt = 0L
     private var jawAt = 0L
     private var smileAt = 0L
     private var puckerAt = 0L
     private var mouthLock = 0L
-    private var volLock = 0L
-    private var volUp = true
 
     private var calibrating = false
     private val samples = mutableListOf<Float>()
@@ -350,7 +347,7 @@ class GhostService : LifecycleService() {
 
     private fun process(
         l: Float, r: Float, brow: Float, nx: Float, ny: Float,
-        jaw: Float, tongue: Float, smile: Float, pucker: Float
+        jaw: Float, smile: Float, pucker: Float
     ) {
         val now = SystemClock.uptimeMillis()
         val m = min(l, r)
@@ -358,7 +355,7 @@ class GhostService : LifecycleService() {
         lastNx = nx
         lastNy = ny
         faceOk = true
-        faceText = "FACE LOCKED  J:${"%.2f".format(jaw)} T:${"%.2f".format(tongue)}"
+        faceText = "FACE LOCKED  J:${"%.2f".format(jaw)} K:${"%.2f".format(pucker)}"
         if (calibrating) {
             samples.add(m)
             refreshDot()
@@ -396,44 +393,29 @@ class GhostService : LifecycleService() {
             }
         } else if (brow < 0.35f) browUp = false
 
-        // mouth gestures
-        val tT = 0.25f
-        val jT = 0.4f
-        if (true) {
-             if (tongue > tT) {
-                if (tongueAt == 0L) tongueAt = now
-            } else tongueAt = 0L
-            if (jaw > jT && tongue < tT) {
-                if (jawAt == 0L) jawAt = now
-            } else jawAt = 0L
-            if (smile > 0.65f && jaw < 0.3f) {
-                if (smileAt == 0L) smileAt = now
-            } else smileAt = 0L
-            if (pucker > 0.6f && jaw < 0.35f && tongue < 0.3f && smile < 0.3f) {
-                if (puckerAt == 0L) puckerAt = now
-            } else puckerAt = 0L
+        // mouth gestures: open mouth = HOME, kiss = BACK, big smile = LIKE (cursor mode)
+        if (jaw > 0.4f) {
+            if (jawAt == 0L) jawAt = now
+        } else jawAt = 0L
+        if (smile > 0.65f && jaw < 0.3f) {
+            if (smileAt == 0L) smileAt = now
+        } else smileAt = 0L
+        if (pucker > 0.5f && jaw < 0.35f && smile < 0.3f) {
+            if (puckerAt == 0L) puckerAt = now
+        } else puckerAt = 0L
 
-            if (now >= mouthLock) {
-                if (tongueAt != 0L && now - tongueAt > 400) navigate("BACK")
-                else if (jawAt != 0L && now - jawAt > 600) navigate("HOME")
-                else if (cursorMode && prefs.getBoolean("smile", true) &&
-                    smileAt != 0L && now - smileAt > 600
-                ) likeCursor()
-                else if (prefs.getBoolean("kiss", true) &&
-                    puckerAt != 0L && now - puckerAt > 500 && now >= volLock
-                ) stepVolume(now)
-            }
-        } else {
-            tongueAt = 0L
-            jawAt = 0L
-            smileAt = 0L
-            puckerAt = 0L
+        if (now >= mouthLock) {
+            if (jawAt != 0L && now - jawAt > 600) navigate("HOME")
+            else if (prefs.getBoolean("kiss", true) &&
+                puckerAt != 0L && now - puckerAt > 400
+            ) navigate("BACK")
+            else if (cursorMode && prefs.getBoolean("smile", true) &&
+                smileAt != 0L && now - smileAt > 600
+            ) likeCursor()
         }
 
         // move cursor (held still while eyes closed or a mouth gesture is in progress)
-        if (cursorMode && !closed && tongueAt == 0L && jawAt == 0L &&
-            smileAt == 0L && puckerAt == 0L
-        ) {
+        if (cursorMode && !closed && jawAt == 0L && smileAt == 0L && puckerAt == 0L) {
             updateCursor(nx, ny, now)
             edgeScroll(now)
         } else {
@@ -444,7 +426,6 @@ class GhostService : LifecycleService() {
 
     private fun lockMouth() {
         mouthLock = SystemClock.uptimeMillis() + 1800
-        tongueAt = 0L
         jawAt = 0L
         smileAt = 0L
         puckerAt = 0L
@@ -466,31 +447,6 @@ class GhostService : LifecycleService() {
         show(name)
         beep(ToneGenerator.TONE_PROP_ACK, 150)
         flash()
-    }
-
-    private fun stepVolume(now: Long) {
-        volLock = now + 600
-        try {
-            val am = getSystemService(AUDIO_SERVICE) as AudioManager
-            val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val cur = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-            if (volUp && cur >= max) volUp = false
-            else if (!volUp && cur <= 0) volUp = true
-            if (practice) {
-                show(if (volUp) "VOLUME UP" else "VOLUME DOWN")
-                return
-            }
-            am.adjustStreamVolume(
-                AudioManager.STREAM_MUSIC,
-                if (volUp) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,
-                0
-            )
-            val v = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-            show((if (volUp) "VOLUME ▲ " else "VOLUME ▼ ") + "$v/$max")
-            beep(ToneGenerator.TONE_PROP_BEEP, 60)
-        } catch (e: Exception) {
-            show("VOLUME ERROR")
-        }
     }
 
     // ---------- Modes ----------
@@ -736,7 +692,6 @@ class GhostService : LifecycleService() {
                 var b2 = 0f
                 var b3 = 0f
                 var jaw = 0f
-                var tongue = 0f
                 var sl = 0f
                 var sr = 0f
                 var pucker = 0f
@@ -748,7 +703,6 @@ class GhostService : LifecycleService() {
                         "browOuterUpLeft" -> b2 = c.score()
                         "browOuterUpRight" -> b3 = c.score()
                         "jawOpen" -> jaw = c.score()
-                        "tongueOut" -> tongue = c.score()
                         "mouthSmileLeft" -> sl = c.score()
                         "mouthSmileRight" -> sr = c.score()
                         "mouthPucker" -> pucker = c.score()
@@ -759,7 +713,7 @@ class GhostService : LifecycleService() {
                 val nose = marks[0][1]
                 val nx = nose.x()
                 val ny = nose.y()
-                handler.post { process(l, r, brow, nx, ny, jaw, tongue, smile, pucker) }
+                handler.post { process(l, r, brow, nx, ny, jaw, smile, pucker) }
             } else {
                 handler.post {
                     faceOk = false
