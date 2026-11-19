@@ -2,10 +2,12 @@ package com.example.ghostwink
 
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.Choreographer
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -14,6 +16,7 @@ import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -43,12 +46,21 @@ class MonkeyCursor(private val ctx: Context) {
     private var attached = false
     private var x = 0f
     private var y = 0f
+    private var tgtX = 0f
+    private var tgtY = 0f
     private var sleeping = false
     private var busy = false
     private var tilt = 1f
     private var lastMove = 0L
     private var walk: ValueAnimator? = null
     private var zAnim: ValueAnimator? = null
+
+    private var looping = false
+    private var lastFrame = 0L
+
+    val posX: Float get() = x
+    val posY: Float get() = y
+    val isBusy: Boolean get() = busy
 
     init {
         monkey.text = "\uD83D\uDC35"
@@ -93,6 +105,48 @@ class MonkeyCursor(private val ctx: Context) {
         }
     }
 
+    private val frame = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (!attached) {
+                looping = false
+                return
+            }
+            val dt = if (lastFrame == 0L) 0.016f
+            else ((frameTimeNanos - lastFrame) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
+            lastFrame = frameTimeNanos
+            val moving = if (busy) true else step(dt)
+            if (moving) {
+                Choreographer.getInstance().postFrameCallback(this)
+            } else {
+                looping = false
+                lastFrame = 0L
+            }
+        }
+    }
+
+    private fun startLoop() {
+        if (looping || !attached) return
+        looping = true
+        lastFrame = 0L
+        Choreographer.getInstance().postFrameCallback(frame)
+    }
+
+    // glide toward the target; returns true while still moving
+    private fun step(dt: Float): Boolean {
+        val dx = tgtX - x
+        val dy = tgtY - y
+        val dist = sqrt(dx * dx + dy * dy)
+        if (dist < 1.5f * d) return false
+        val a = 1f - exp(-dt * 16f)
+        x += dx * a
+        y += dy * a
+        place()
+        lastMove = SystemClock.uptimeMillis()
+        if (sleeping) wake()
+        if (dist > 6f * d) startWalk(dx)
+        return true
+    }
+
     fun setBoom(e: String) {
         boom.text = e
     }
@@ -101,12 +155,12 @@ class MonkeyCursor(private val ctx: Context) {
         if (s == "dot") {
             monkey.text = "◎"
             monkey.textSize = 34f
-            monkey.setTextColor(android.graphics.Color.parseColor("#00E5FF"))
+            monkey.setTextColor(Color.parseColor("#00E5FF"))
             monkey.gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
         } else {
             monkey.text = s
             monkey.textSize = 40f
-            monkey.setTextColor(android.graphics.Color.WHITE)
+            monkey.setTextColor(Color.WHITE)
             monkey.gravity = Gravity.CENTER
         }
     }
@@ -125,6 +179,8 @@ class MonkeyCursor(private val ctx: Context) {
     fun show(sx: Float, sy: Float) {
         x = sx
         y = sy
+        tgtX = sx
+        tgtY = sy
         place()
         if (!attached) {
             try {
@@ -142,6 +198,9 @@ class MonkeyCursor(private val ctx: Context) {
 
     fun hide() {
         handler.removeCallbacksAndMessages(null)
+        Choreographer.getInstance().removeFrameCallback(frame)
+        looping = false
+        lastFrame = 0L
         stopWalk()
         zAnim?.cancel()
         monkey.animate().cancel()
@@ -156,20 +215,17 @@ class MonkeyCursor(private val ctx: Context) {
         busy = false
     }
 
-    fun moveTo(tx: Float, ty: Float) {
+    fun moveTo(nx: Float, ny: Float) {
         if (!attached || busy) return
         val dm = ctx.resources.displayMetrics
-        val cx = tx.coerceIn(0f, dm.widthPixels.toFloat())
-        val cy = ty.coerceIn(0f, dm.heightPixels.toFloat())
-        val dx = cx - x
-        val dy = cy - y
-        if (sqrt(dx * dx + dy * dy) < 10 * d) return // dead zone = steady cursor
-        x += dx * 0.35f
-        y += dy * 0.35f
-        place()
-        lastMove = SystemClock.uptimeMillis()
-        if (sleeping) wake()
-        startWalk(dx)
+        val cx = nx.coerceIn(0f, dm.widthPixels.toFloat())
+        val cy = ny.coerceIn(0f, dm.heightPixels.toFloat())
+        val dx = cx - tgtX
+        val dy = cy - tgtY
+        if (sqrt(dx * dx + dy * dy) < 5f * d) return // small dead zone
+        tgtX = cx
+        tgtY = cy
+        startLoop()
     }
 
     private fun startWalk(dx: Float) {
@@ -230,6 +286,8 @@ class MonkeyCursor(private val ctx: Context) {
         wake()
         val hx = x
         val hy = y
+        tgtX = x
+        tgtY = y
         monkey.animate().cancel()
         monkey.animate().translationY(-jump * 0.8f).scaleY(1.15f).setDuration(140)
             .withEndAction {

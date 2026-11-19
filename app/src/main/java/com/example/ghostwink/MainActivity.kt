@@ -310,7 +310,64 @@ class MainActivity : ComponentActivity() {
         cur.addView(smileBtn)
         paintSmile()
 
+        fun toggleBtn(title: String, key: String, def: Boolean, color: Int, after: () -> Unit = {}): Button {
+            lateinit var b: Button
+            fun paint() {
+                b.text = title + ": " + (if (prefs.getBoolean(key, def)) "ON" else "OFF")
+            }
+            b = neonBtn("", color) {
+                prefs.edit().putBoolean(key, !prefs.getBoolean(key, def)).apply()
+                paint()
+                after()
+            }
+            paint()
+            return b
+        }
+
+        val smL = label("")
+        fun smText() {
+            smL.text = "CURSOR SMOOTHNESS: ${prefs.getInt("csmooth", 5)}  (HIGHER = SMOOTHER)"
+        }
+        smText()
+        cur.addView(smL)
+        val smBar = SeekBar(this)
+        smBar.max = 9
+        smBar.progress = (prefs.getInt("csmooth", 5) - 1).coerceIn(0, 9)
+        tintSeek(smBar, cyan)
+        smBar.setOnSeekBarChangeListener(listener { p ->
+            prefs.edit().putInt("csmooth", p + 1).apply()
+            smText()
+        })
+        cur.addView(smBar)
+        cur.addView(toggleBtn("EDGE AUTO-SCROLL", "edge", true, amber))
         col.addView(cur)
+
+        val extra = card()
+        extra.addView(label("// extras"))
+        extra.addView(toggleBtn("KISS = VOLUME", "kiss", true, green))
+        extra.addView(toggleBtn("NIGHT MODE", "night", false, cyan) {
+            GhostService.instance?.applyNight()
+        })
+        val nL = label("")
+        fun nText() {
+            nL.text = "NIGHT DIMNESS: ${prefs.getInt("nlevel", 50)}%"
+        }
+        nText()
+        extra.addView(nL)
+        val nBar = SeekBar(this)
+        nBar.max = 65
+        nBar.progress = (prefs.getInt("nlevel", 50) - 10).coerceIn(0, 65)
+        tintSeek(nBar, cyan)
+        nBar.setOnSeekBarChangeListener(listener { p ->
+            prefs.edit().putInt("nlevel", p + 10).apply()
+            nText()
+            GhostService.instance?.applyNight()
+        })
+        extra.addView(nBar)
+        extra.addView(toggleBtn("FACE GLOW (EDGE LIGHT)", "glow", false, amber) {
+            GhostService.instance?.applyNight()
+        })
+        col.addView(extra)
 
         // ---- Tuning card ----
         val tune = card()
