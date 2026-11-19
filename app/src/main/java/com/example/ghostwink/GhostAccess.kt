@@ -52,6 +52,27 @@ class GhostAccess : AccessibilityService() {
         else swipe(w / 2, h * 0.3f, w / 2, h * 0.7f, 350)
     }
 
+    fun longPressAt(x: Float, y: Float) {
+        val p = Path()
+        p.moveTo(x, y)
+        val g = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(p, 0, 700))
+            .build()
+        dispatchGesture(g, null, null)
+    }
+
+    fun doubleTapAt(x: Float, y: Float) {
+        val p1 = Path()
+        p1.moveTo(x, y)
+        val p2 = Path()
+        p2.moveTo(x, y)
+        val g = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(p1, 0, 50))
+            .addStroke(GestureDescription.StrokeDescription(p2, 150, 50))
+            .build()
+        dispatchGesture(g, null, null)
+    }
+
     fun tapAt(x: Float, y: Float) {
         val p = Path()
         p.moveTo(x, y)

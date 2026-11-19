@@ -93,6 +93,24 @@ class MonkeyCursor(private val ctx: Context) {
         }
     }
 
+    fun setBoom(e: String) {
+        boom.text = e
+    }
+
+    fun setSkin(s: String) {
+        if (s == "dot") {
+            monkey.text = "◎"
+            monkey.textSize = 34f
+            monkey.setTextColor(android.graphics.Color.parseColor("#00E5FF"))
+            monkey.gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+        } else {
+            monkey.text = s
+            monkey.textSize = 40f
+            monkey.setTextColor(android.graphics.Color.WHITE)
+            monkey.gravity = Gravity.CENTER
+        }
+    }
+
     private fun place() {
         lp.x = (x - w / 2f).toInt()
         lp.y = (y - h).toInt()

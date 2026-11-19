@@ -28,9 +28,9 @@ class PracticeActivity : ComponentActivity() {
         Step("Type SOS", "S, then O, then S. Pause between letters.", 1, "SOS"),
         Step("Enter control mode", "Close your eyes for three seconds.", 2),
         Step("Scroll down", "One quick blink.", 3, "SCROLL DOWN"),
-        Step("Go back", "Two quick blinks.", 3, "BACK"),
+        Step("Go back", "Stick your tongue out for half a second.", 3, "BACK"),
         Step("Start cursor mode", "Raise your eyebrows. The monkey appears.", 4),
-        Step("Click the target", "Move your nose until the monkey stands on the target. Then one long blink.", 5),
+        Step("Click the target", "Move your nose until the monkey stands on the target. Then one deliberate blink (about half a second).", 5),
         Step("Back to type mode", "Raise your eyebrows, then close your eyes for three seconds.", 6)
     )
 

@@ -279,6 +279,37 @@ class MainActivity : ComponentActivity() {
         }
         cur.addView(invBtn)
         paintInv()
+        val cskins = listOf(
+            "🐵" to "MONKEY", "🐱" to "CAT", "👻" to "GHOST", "🤖" to "ROBOT",
+            "🦊" to "FOX", "🐸" to "FROG", "dot" to "NEON DOT"
+        )
+        lateinit var skinBtn: Button
+        fun paintSkin() {
+            val now = prefs.getString("cskin", "🐵")
+            val name = cskins.firstOrNull { it.first == now }?.second ?: "MONKEY"
+            skinBtn.text = "CURSOR: $name  (TAP TO CHANGE)"
+        }
+        skinBtn = neonBtn("", cyan) {
+            val now = prefs.getString("cskin", "🐵")
+            val i = cskins.indexOfFirst { it.first == now }
+            prefs.edit().putString("cskin", cskins[(i + 1) % cskins.size].first).apply()
+            GhostService.instance?.applySkin()
+            paintSkin()
+        }
+        cur.addView(skinBtn)
+        paintSkin()
+
+        lateinit var smileBtn: Button
+        fun paintSmile() {
+            smileBtn.text = if (prefs.getBoolean("smile", true)) "SMILE = LIKE: ON" else "SMILE = LIKE: OFF"
+        }
+        smileBtn = neonBtn("", green) {
+            prefs.edit().putBoolean("smile", !prefs.getBoolean("smile", true)).apply()
+            paintSmile()
+        }
+        cur.addView(smileBtn)
+        paintSmile()
+
         col.addView(cur)
 
         // ---- Tuning card ----

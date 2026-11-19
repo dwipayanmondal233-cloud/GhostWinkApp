@@ -20,7 +20,6 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
-import java.util.Locale
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -35,6 +34,7 @@ import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
+import java.util.Locale
 import java.util.concurrent.Executors
 import kotlin.math.min
 
@@ -55,19 +55,33 @@ class GhostService : LifecycleService() {
         "---.." to "8", "----." to "9", "-----" to "0"
     )
 
-    // Read by the app screen
+    // Read by the app screens
     var text = ""
     var seq = ""
     var evt = ""
     var status = ""
     var faceText = "Starting..."
     var eye = 0f
+    var controlMode = false
+    var cursorMode = false
+
+    // Practice mode hooks
+    var practice = false
+    var lastLetter = ""
+    var letterSerial = 0
+    var lastCmd = ""
+    var cmdSerial = 0
+    var practiceClick: ((Float, Float) -> Unit)? = null
 
     private lateinit var prefs: SharedPreferences
     private val handler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
     private var landmarker: FaceLandmarker? = null
     private var tone: ToneGenerator? = null
+
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
+    private var lastNoFace = 0L
 
     private var th = 0.5f
     private var ds = 800
@@ -82,8 +96,21 @@ class GhostService : LifecycleService() {
     private var faceOk = false
     private var flashUntil = 0L
 
+    // mouth gestures
+    private var tongueAt = 0L
+    private var jawAt = 0L
+    private var smileAt = 0L
+    private var mouthLock = 0L
+
     private var calibrating = false
     private val samples = mutableListOf<Float>()
+
+    // cursor
+    private var monkey: MonkeyCursor? = null
+    private var neutralX = 0.5f
+    private var neutralY = 0.5f
+    private var lastNx = 0.5f
+    private var lastNy = 0.5f
 
     private var dot: View? = null
     private var dotBg: GradientDrawable? = null
@@ -125,6 +152,12 @@ class GhostService : LifecycleService() {
         lg = prefs.getInt("lg", 1200)
     }
 
+    fun say(msg: String) {
+        if (!ttsReady || !prefs.getBoolean("voice", true)) return
+        tts?.setSpeechRate(prefs.getInt("vrate", 100) / 100f)
+        tts?.speak(msg, TextToSpeech.QUEUE_FLUSH, null, "gw")
+    }
+
     private fun buildNotification(): Notification {
         val channelId = "ghost_channel"
         getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -139,7 +172,7 @@ class GhostService : LifecycleService() {
             "Stop", stop
         ).build()
         return Notification.Builder(this, channelId)
-            .setContentTitle("GhostWink is watching 👻")
+            .setContentTitle("GHOSTWINK // ACTIVE")
             .setContentText("Tap Stop to turn the camera off")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .addAction(action)
@@ -224,8 +257,7 @@ class GhostService : LifecycleService() {
                         if (!practice) GhostAccess.instance?.typeText(ch)
                     }
                     show(if (controlMode) ch else "Letter $ch")
-                    if (controlMode) { /* silent */ }
-                    else if (prefs.getBoolean("sayletters", false)) say(ch, flush = false)
+                    if (!controlMode && prefs.getBoolean("sayletters", false)) say(ch)
                     beep(ToneGenerator.TONE_PROP_ACK, 120)
                     flash()
                 } else {
@@ -253,7 +285,12 @@ class GhostService : LifecycleService() {
         beep(ToneGenerator.TONE_PROP_BEEP, if (c == '.') 80 else 200)
     }
 
-    private fun process(l: Float, r: Float, brow: Float, nx: Float, ny: Float) {
+    // ---------- Main face logic ----------
+
+    private fun process(
+        l: Float, r: Float, brow: Float, nx: Float, ny: Float,
+        jaw: Float, tongue: Float, smile: Float
+    ) {
         val now = SystemClock.uptimeMillis()
         val m = min(l, r)
         eye = m
@@ -266,6 +303,8 @@ class GhostService : LifecycleService() {
             refreshDot()
             return
         }
+
+        // blinks
         if (!closed && m > th) {
             closed = true
             closedAt = now
@@ -274,37 +313,86 @@ class GhostService : LifecycleService() {
             val d = now - closedAt
             if (d >= 2500) toggleMode()
             else if (cursorMode) {
-                if (d >= ds) clickCursor()
+                if (d >= 250) {
+                    if (d >= ds) pressCursor() else clickCursor()
+                }
             } else if (d >= 250) addSymbol(if (d >= ds) '-' else '.')
         }
+
+        // eyebrows
         if (brow > 0.55f && !browUp && now > browLock) {
             browUp = true
             browLock = now + 900
             if (controlMode) {
                 toggleCursor()
-            } else if (seq.isNotEmpty()) seq = seq.dropLast(1)
-            else if (!controlMode) {
+            } else if (seq.isNotEmpty()) {
+                seq = seq.dropLast(1)
+                show("🤨 backspace")
+            } else {
                 text = text.dropLast(1)
                 if (!practice) GhostAccess.instance?.deleteLast()
+                show("🤨 backspace")
             }
-            if (!controlMode) show("🤨 backspace")
         } else if (brow < 0.35f) browUp = false
-        if (cursorMode && !closed) updateCursor(nx, ny)
+
+        // mouth gestures (CONTROL and CURSOR modes only)
+        if (controlMode) {
+            if (tongue > 0.45f) {
+                if (tongueAt == 0L) tongueAt = now
+            } else tongueAt = 0L
+            if (jaw > 0.55f && tongue < 0.3f) {
+                if (jawAt == 0L) jawAt = now
+            } else jawAt = 0L
+            if (smile > 0.65f && jaw < 0.3f) {
+                if (smileAt == 0L) smileAt = now
+            } else smileAt = 0L
+
+            if (now >= mouthLock) {
+                if (tongueAt != 0L && now - tongueAt > 500) navigate("BACK")
+                else if (jawAt != 0L && now - jawAt > 700) navigate("HOME")
+                else if (cursorMode && prefs.getBoolean("smile", true) &&
+                    smileAt != 0L && now - smileAt > 600
+                ) likeCursor()
+            }
+        } else {
+            tongueAt = 0L
+            jawAt = 0L
+            smileAt = 0L
+        }
+
+        // move cursor (held still while eyes closed or mouth gesture in progress)
+        if (cursorMode && !closed && tongueAt == 0L && jawAt == 0L && smileAt == 0L) {
+            updateCursor(nx, ny)
+        }
         refreshDot()
     }
 
-    var controlMode = false
-
-    private var tts: TextToSpeech? = null
-    private var ttsReady = false
-    private var lastNoFace = 0L
-
-    fun say(msg: String, flush: Boolean = true) {
-        if (!ttsReady || !prefs.getBoolean("voice", true)) return
-        tts?.setSpeechRate(prefs.getInt("vrate", 100) / 100f)
-        val q = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-        tts?.speak(msg, q, null, "gw")
+    private fun lockMouth() {
+        mouthLock = SystemClock.uptimeMillis() + 1800
+        tongueAt = 0L
+        jawAt = 0L
+        smileAt = 0L
     }
+
+    private fun navigate(name: String) {
+        lockMouth()
+        if (practice) {
+            lastCmd = name
+            cmdSerial++
+        } else {
+            val a = GhostAccess.instance
+            if (a == null) {
+                show("ENABLE GHOSTWINK IN ACCESSIBILITY")
+                return
+            }
+            if (name == "BACK") a.back() else a.home()
+        }
+        show(name)
+        beep(ToneGenerator.TONE_PROP_ACK, 150)
+        flash()
+    }
+
+    // ---------- Modes ----------
 
     private fun toggleMode() {
         if (cursorMode) leaveCursor()
@@ -321,8 +409,6 @@ class GhostService : LifecycleService() {
             val name = when (code) {
                 "." -> "SCROLL DOWN"
                 "-" -> "SCROLL UP"
-                ".." -> "BACK"
-                "--" -> "HOME"
                 "..." -> "NOTIFICATIONS"
                 "-." -> "TAP"
                 ".-" -> "RECENTS"
@@ -338,8 +424,6 @@ class GhostService : LifecycleService() {
         return when (code) {
             "." -> { a.scroll(true); "SCROLL DOWN" }
             "-" -> { a.scroll(false); "SCROLL UP" }
-            ".." -> { a.back(); "BACK" }
-            "--" -> { a.home(); "HOME" }
             "..." -> { a.notifications(); "NOTIFICATIONS" }
             "-." -> { a.tapCenter(); "TAP" }
             ".-" -> { a.recents(); "RECENTS" }
@@ -347,12 +431,11 @@ class GhostService : LifecycleService() {
         }
     }
 
-    var cursorMode = false
-    private var monkey: MonkeyCursor? = null
-    private var neutralX = 0.5f
-    private var neutralY = 0.5f
-    private var lastNx = 0.5f
-    private var lastNy = 0.5f
+    // ---------- Cursor ----------
+
+    fun applySkin() {
+        monkey?.setSkin(prefs.getString("cskin", "🐵") ?: "🐵")
+    }
 
     private fun toggleCursor() {
         if (!cursorMode) {
@@ -369,6 +452,7 @@ class GhostService : LifecycleService() {
             neutralX = lastNx
             neutralY = lastNy
             if (monkey == null) monkey = MonkeyCursor(this)
+            applySkin()
             val dm = resources.displayMetrics
             monkey?.show(dm.widthPixels / 2f, dm.heightPixels / 2f)
             show("MODE: CURSOR")
@@ -397,18 +481,33 @@ class GhostService : LifecycleService() {
     }
 
     private fun clickCursor() {
+        monkey?.setBoom("💥")
         monkey?.slam { x, y ->
             if (practice) practiceClick?.invoke(x, y) else GhostAccess.instance?.tapAt(x, y)
         }
+        show("SELECT")
         beep(ToneGenerator.TONE_PROP_BEEP, 80)
     }
 
-    var practice = false
-    var lastLetter = ""
-    var letterSerial = 0
-    var lastCmd = ""
-    var cmdSerial = 0
-    var practiceClick: ((Float, Float) -> Unit)? = null
+    private fun pressCursor() {
+        monkey?.setBoom("⏳")
+        monkey?.slam { x, y ->
+            if (!practice) GhostAccess.instance?.longPressAt(x, y)
+        }
+        show("LONG PRESS")
+        beep(ToneGenerator.TONE_PROP_BEEP2, 150)
+    }
+
+    private fun likeCursor() {
+        lockMouth()
+        monkey?.setBoom("❤️")
+        monkey?.slam { x, y ->
+            if (!practice) GhostAccess.instance?.doubleTapAt(x, y)
+        }
+        show("LIKE ❤️")
+        beep(ToneGenerator.TONE_PROP_ACK, 150)
+        flash()
+    }
 
     fun resetModes() {
         if (cursorMode) leaveCursor()
@@ -420,6 +519,8 @@ class GhostService : LifecycleService() {
         text = ""
         seq = ""
     }
+
+    // ---------- Calibration ----------
 
     private fun avg() = if (samples.isEmpty()) 0f else samples.sum() / samples.size
 
@@ -446,8 +547,8 @@ class GhostService : LifecycleService() {
             } else {
                 th = (Math.round((open + (closedAvg - open) * 0.5f) * 20) / 20f).coerceIn(0.1f, 0.9f)
                 prefs.edit().putFloat("th", th).apply()
-                status = "Calibrated ✅ Open=${"%.2f".format(open)} Closed=${"%.2f".format(closedAvg)} Sensitivity=${"%.2f".format(th)}"
                 say("Calibrated")
+                status = "Calibrated ✅ Open=${"%.2f".format(open)} Closed=${"%.2f".format(closedAvg)} Sensitivity=${"%.2f".format(th)}"
             }
             calibrating = false
             closed = false
@@ -489,12 +590,17 @@ class GhostService : LifecycleService() {
             val rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
             val res = landmarker!!.detect(BitmapImageBuilder(rotated).build())
             val shapes = res.faceBlendshapes().orElse(null)
-            if (shapes != null && shapes.isNotEmpty()) {
+            val marks = res.faceLandmarks()
+            if (shapes != null && shapes.isNotEmpty() && marks.isNotEmpty()) {
                 var l = 0f
                 var r = 0f
                 var b1 = 0f
                 var b2 = 0f
                 var b3 = 0f
+                var jaw = 0f
+                var tongue = 0f
+                var sl = 0f
+                var sr = 0f
                 for (c in shapes[0]) {
                     when (c.categoryName()) {
                         "eyeBlinkLeft" -> l = c.score()
@@ -502,13 +608,18 @@ class GhostService : LifecycleService() {
                         "browInnerUp" -> b1 = c.score()
                         "browOuterUpLeft" -> b2 = c.score()
                         "browOuterUpRight" -> b3 = c.score()
+                        "jawOpen" -> jaw = c.score()
+                        "tongueOut" -> tongue = c.score()
+                        "mouthSmileLeft" -> sl = c.score()
+                        "mouthSmileRight" -> sr = c.score()
                     }
                 }
                 val brow = (b1 + b2 + b3) / 3f
-                val nose = res.faceLandmarks()[0][1]
+                val smile = (sl + sr) / 2f
+                val nose = marks[0][1]
                 val nx = nose.x()
                 val ny = nose.y()
-                handler.post { process(l, r, brow, nx, ny) }
+                handler.post { process(l, r, brow, nx, ny, jaw, tongue, smile) }
             } else {
                 handler.post {
                     faceOk = false
@@ -530,11 +641,11 @@ class GhostService : LifecycleService() {
     override fun onDestroy() {
         instance = null
         handler.removeCallbacksAndMessages(null)
+        monkey?.hide()
         try {
             dot?.let { wm?.removeView(it) }
         } catch (e: Exception) {
         }
-        monkey?.hide()
         tts?.stop()
         tts?.shutdown()
         executor.shutdown()

@@ -147,13 +147,15 @@
     <tr><td>TYPE: blink codes</td><td>Morse letters, e.g. S = · · ·, O = − − −</td></tr>
     <tr><td>CONTROL: ·</td><td>Scroll down</td></tr>
     <tr><td>CONTROL: −</td><td>Scroll up</td></tr>
-    <tr><td>CONTROL: · ·</td><td>Back</td></tr>
-    <tr><td>CONTROL: − −</td><td>Home</td></tr>
+    <tr><td>CONTROL: tongue out 0.5s</td><td>Back</td></tr>
+    <tr><td>CONTROL: mouth open 0.7s</td><td>Home</td></tr>
     <tr><td>CONTROL: · · ·</td><td>Notifications</td></tr>
     <tr><td>CONTROL: · −</td><td>Recent apps</td></tr>
     <tr><td>CONTROL: − ·</td><td>Tap screen center</td></tr>
     <tr><td>CURSOR: nose</td><td>Move the monkey</td></tr>
-    <tr><td>CURSOR: long blink</td><td>Slam and tap at its feet</td></tr>
+    <tr><td>CURSOR: quick blink</td><td>Select (tap at its feet)</td></tr>
+    <tr><td>CURSOR: long blink</td><td>Long press</td></tr>
+    <tr><td>CURSOR: big smile 0.6s</td><td>Like (double tap) ❤️</td></tr>
   </table></div>
 
   <h2 class="reveal">Practice mode</h2>
@@ -231,7 +233,7 @@ let li=0,ci=0,del=false;
 
 // morse playground
 const M={'.-':'A','-...':'B','-.-.':'C','-..':'D','.':'E','..-.':'F','--.':'G','....':'H','..':'I','.---':'J','-.-':'K','.-..':'L','--':'M','-.':'N','---':'O','.--.':'P','--.-':'Q','.-.':'R','...':'S','-':'T','..-':'U','...-':'V','.--':'W','-..-':'X','-.--':'Y','--..':'Z','.----':'1','..---':'2','...--':'3','....-':'4','.....':'5','-....':'6','--...':'7','---..':'8','----.':'9','-----':'0'};
-const C={'.':'SCROLL DOWN','-':'SCROLL UP','..':'BACK','--':'HOME','...':'NOTIFICATIONS','.-':'RECENTS','-.':'TAP'};
+const C={'.':'SCROLL DOWN','-':'SCROLL UP','...':'NOTIFICATIONS','.-':'RECENTS','-.':'TAP'};
 let mode='type',seq='',out='',t0=0,timer;
 const pad=$('pad');
 const draw=()=>{$('seq').textContent=seq.replace(/\./g,'·').replace(/-/g,'−');$('out').textContent=out};
